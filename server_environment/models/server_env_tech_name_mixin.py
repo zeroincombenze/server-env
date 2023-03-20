@@ -1,6 +1,6 @@
 # Copyright 2020 Camptocamp (http://www.camptocamp.com)
 # @author Simone Orsi <simahawk@gmail.com>
-# License LGPL-3.0 or later (https://www.gnu.org/licenses/lgpl.html)
+# License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl).
 
 from odoo import api, fields, models
 
@@ -29,17 +29,12 @@ class ServerEnvTechNameMixin(models.AbstractModel):
     _name = "server.env.techname.mixin"
     _description = "Server environment technical name"
     _sql_constraints = [
-        (
-            "tech_name_uniq",
-            "unique(tech_name)",
-            "`tech_name` must be unique!",
-        )
+        ("tech_name_uniq", "unique(tech_name)", "`tech_name` must be unique!",)
     ]
     # TODO: could leverage the new option for computable / writable fields
     # and get rid of some onchange / read / write code.
     tech_name = fields.Char(
         help="Unique name for technical purposes. Eg: server env keys.",
-        copy=False,
     )
 
     _server_env_section_name_field = "tech_name"
