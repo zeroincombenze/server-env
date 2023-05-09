@@ -24,7 +24,7 @@ try:
     _dir = os.path.dirname(server_environment_files.__file__)
 except ImportError:
     _logger.info(
-        "not using server_environment_files for configuration," " no directory found"
+        "not using server_environment_files for configuration, no directory found"
     )
     _dir = None
 
@@ -111,7 +111,9 @@ def _load_config_from_server_env_files(config_p):
     try:
         config_p.read(conf_files)
     except Exception as e:
-        raise Exception('Cannot read config files "{}":  {}'.format(conf_files, e))
+        raise Exception(
+            'Cannot read config files "{}":  {}'.format(conf_files, e)
+        ) from e
 
 
 def _load_config_from_rcfile(config_p):
@@ -128,7 +130,7 @@ def _load_config_from_env(config_p):
             except configparser.Error as err:
                 raise Exception(
                     "{} content could not be parsed: {}".format(varname, err)
-                )
+                ) from err
 
 
 def _load_config():
@@ -200,15 +202,18 @@ class ServerConfiguration(models.TransientModel):
         )
         for col, value in cols:
             col_name = col.replace(".", "_")
+            tmp_field = fields.Char(
+                string=cls._format_key_display_name(col_name),
+                sparse="config",
+                readonly=True,
+            )
             setattr(
                 ServerConfiguration,
                 col_name,
-                fields.Char(
-                    string=cls._format_key_display_name(col_name),
-                    sparse="config",
-                    readonly=True,
-                ),
+                tmp_field,
             )
+            tmp_field.name = col_name
+            ServerConfiguration._field_definitions.append(tmp_field)
             cls._conf_defaults[col_name] = value
 
     @classmethod
@@ -285,17 +290,14 @@ class ServerConfiguration(models.TransientModel):
         cls._arch = etree.fromstring(arch)
 
     @api.model
-    def fields_view_get(
-        self, view_id=None, view_type="form", toolbar=False, submenu=False
-    ):
-        """Overwrite the default method to render the custom view."""
-        res = super().fields_view_get(view_id, view_type, toolbar)
+    def get_view(self, view_id=None, view_type="form", **options):
+        res = super().get_view(view_id, view_type, **options)
         View = self.env["ir.ui.view"].browse(view_id)
         if view_type == "form":
-            arch_node = self._arch
-            xarch, xfields = View.postprocess_and_fields(arch_node, model=self._name)
-            res["arch"] = xarch
-            res["fields"] = xfields
+            arch, models = View.postprocess_and_fields(
+                self._arch, model=self._name, **options
+            )
+            res["arch"] = arch
         return res
 
     @api.model
@@ -316,6 +318,8 @@ class ServerConfiguration(models.TransientModel):
         ):
             return res
         for key in self._conf_defaults:
+            if key not in fields_list:
+                continue
             if not self.show_passwords and self._is_secret(key=key):
                 res[key] = "**********"
             else:
